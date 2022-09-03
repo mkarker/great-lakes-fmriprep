@@ -1,0 +1,104 @@
+#!/bin/bash
+ 
+#---------------------------------------------------------------
+#------ Begin preamble:  Contains directives for the Slurm scheduler
+ 
+#------ The job name
+#SBATCH --job-name MY_JOB_NAME
+ 
+#------ These lines ask for one node to run fMRIPrep with 4 cores
+#SBATCH --nodes=1
+#SBATCH --tasks-per-node=1
+#SBATCH --cpus-per-task=4
+ 
+#------ The whole job should have access to 28 GB memory
+#SBATCH --mem=28g
+ 
+#------ Slurm should cancel it if it exceeds 12 hours running time
+#SBATCH --time=12:00:00
+ 
+#------ This account will pay for it
+#SBATCH --account=ACCOUNT_NAME
+ 
+#------ fMRIPrep can use standard compute nodes
+#SBATCH --partition=standard
+ 
+#------ E-mail notifications of job start/end
+#SBATCH --mail-user=YOUR_EMAIL
+#SBATCH --mail-type=BEGIN,END
+ 
+source /etc/profile.d/http_proxy.sh
+ 
+#------ End  preamble
+#---------------------------------------------------------------
+
+#------ Load modules for needed software here
+module load singularity
+
+#------ Print information about the job to the output file
+my_job_header
+
+#------ Commands for your job should appear here
+ 
+echo -e "Create any directories needed for the job.\n"
+ 
+FMRIPREP=/sw/examples/fmriprep/fmriprep-20.2.5.sif
+SURF_LICENSE=/path/to/fs_license.txt
+export SINGULARITYENV_FS_LICENSE=$SURF_LICENSE
+export FS_LICENSE=$SURF_LICENSE
+ 
+echo -e "Setting variables for the job.\n"
+ 
+export SUBJECT=MY_SUBJECT_NUMBER
+ 
+# Create a sandbox directory in /tmp
+TMP_DIR=/tmp/mkarker_tmp/${SUBJECT}
+mkdir -p $TMP_DIR
+echo -e "\nTMP_DIR defined as ${TMP_DIR}"
+ 
+export TEMPLATEFLOW_HOME=$TMP_DIR/TemplateFlow
+ 
+export WORK_DIR=$TMP_DIR/work
+export BIDS_DIR=$TMP_DIR/bids
+export DERIVATIVES_DIR=$TMP_DIR/derivatives
+for dir in $WORK_DIR $BIDS_DIR $DERIVATIVES_DIR ; do
+    mkdir $dir
+done
+ 
+export SRC_DIR=/path/to/fMRI/data
+ 
+cp -pr $SRC_DIR/$SUBJECT $TMP_DIR/bids/
+cp -pr /path/to/TemplateFlow $TMP_DIR/
+cp -pr $SRC_DIR/dataset_description.json $TMP_DIR/bids/
+ 
+echo "Running fMRIPrep for subject ${SUBJECT}.\n"
+ 
+mkdir $TMP_DIR/tmp
+ 
+singularity run                                   \
+  --cleanenv $FMRIPREP                            \
+     $BIDS_DIR $DERIVATIVES_DIR participant       \
+     --participant-label=${SUBJECT}               \
+     --nprocs 4                                   \
+     -w $WORK_DIR                                 \
+     --cifti-output 91k                           \
+     --notrack                                    \
+     --output-spaces T1w MNI152NLin6Asym
+ 
+echo -e singularity exec fmriprep \
+    ... \
+    $SUBJECT \
+    ....
+
+echo -e "Copy or move any results. \n"
+
+#copy to SRC dir
+rsync -av $DERIVATIVES_DIR $SRC_DIR/derivatives
+ 
+#copy to local server
+rsync -av $SRC_DIR/derivatives user@local
+ 
+echo -e "Delete temporary files. \n"
+rm -rf $TMP_DIR
+ 
+echo -e "All done. \n"            
