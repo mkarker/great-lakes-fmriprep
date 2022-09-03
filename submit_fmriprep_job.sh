@@ -7,7 +7,7 @@ for subject in $subjects ; do
 	MY_SUBJECT_NUMBER=${subject}
 	MY_JOB_NAME=${MY_SUBJECT_NUMBER}
  
-	cp batch_file.sbat ${MY_JOB_NAME}.sbat
+	cp fmriprep_job_script.sbat ${MY_JOB_NAME}.sbat
 	# sed converts strings in files with this
 	sed -i "s/MY_SUBJECT_NUMBER/${MY_SUBJECT_NUMBER}/;
      	s/MY_JOB_NAME/${MY_JOB_NAME}/" ${MY_JOB_NAME}.sbat
